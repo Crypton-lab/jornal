@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jornal: registro de reparto</title>
+<meta name="description" content="Registra tus pedidos, propinas, gastos y turnos de reparto. Funciona sin conexión.">
+<meta name="theme-color" content="#E9EDF3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1626" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EDF3; --surface:#FFFFFF; --ink:#14213D; --muted:#56627A; --line:#D3DAE5;
+  --sign:#F5C400; --sign-ink:#14213D; --road:#1D4E89; --gasto:#B83227; --ok:#1F7A4D;
+  --field:#F3F6FA;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1626; --surface:#18223A; --ink:#E8EDF6; --muted:#9AA6BD; --line:#2A3654;
+    --sign:#F5C400; --sign-ink:#14213D; --road:#6FA3E0; --gasto:#F07A6E; --ok:#5CC48F;
+    --field:#202C47; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1626; --surface:#18223A; --ink:#E8EDF6; --muted:#9AA6BD; --line:#2A3654;
+  --sign:#F5C400; --sign-ink:#14213D; --road:#6FA3E0; --gasto:#F07A6E; --ok:#5CC48F;
+  --field:#202C47; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.45 Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:520px;margin:0 auto;padding:16px 16px 120px}
+.num{font-family:"Barlow Condensed",Barlow,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--road);outline-offset:2px}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{font:800 28px/1 "Barlow Condensed",Barlow,sans-serif;letter-spacing:.5px}
+.daynav{display:flex;align-items:center;gap:4px}
+.daynav button{width:40px;height:40px;border:1px solid var(--line);background:var(--surface);border-radius:10px;font-size:20px;line-height:1}
+.daynav button:disabled{opacity:.35;cursor:default}
+.daylabel{min-width:118px;text-align:center;font-weight:600;font-size:15px}
+
+/* La placa: la pieza memorable, como un letrero vial */
+.placa{background:var(--sign);color:var(--sign-ink);border-radius:14px;padding:18px 18px 16px;border:3px solid var(--sign-ink);box-shadow:inset 0 0 0 3px var(--sign)}
+.placa .lbl{font-weight:600;font-size:15px}
+.placa .neto{font:800 64px/1 "Barlow Condensed",sans-serif;margin:4px 0 12px;letter-spacing:-.5px}
+.placa .neto small{font-size:30px;font-weight:700;margin-right:4px}
+.placa .neto.neg{color:#7A1A12}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border-top:2px solid var(--sign-ink);padding-top:10px}
+.stats div{display:flex;flex-direction:column}
+.stats b{font:700 22px/1.1 "Barlow Condensed",sans-serif}
+.stats span{font-size:12.5px;font-weight:500}
+
+.turno{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.turno .t{font-size:14px;color:var(--muted)}
+.turno .t strong{display:block;color:var(--ink);font:700 22px/1.1 "Barlow Condensed",sans-serif}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:600}
+.btn.road{background:var(--road);color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn.stop{background:var(--gasto);color:#fff}
+
+h2{font:700 22px/1.2 "Barlow Condensed",sans-serif;margin:26px 0 10px}
+.lista{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.lista li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-top:1px solid var(--line)}
+.lista li:first-child{border-top:0}
+.lista .hora{font-size:13px;color:var(--muted);width:44px;flex:none}
+.lista .det{flex:1;min-width:0}
+.lista .det .q{font-weight:600}
+.lista .det .s{font-size:13px;color:var(--muted)}
+.lista .m{font:700 20px/1 "Barlow Condensed",sans-serif;white-space:nowrap}
+.lista .m.in{color:var(--road)} .lista .m.out{color:var(--gasto)}
+.lista .del{border:0;background:transparent;color:var(--muted);font-size:13px;padding:6px;text-decoration:underline}
+.vacio{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);text-align:center}
+
+.semana{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.semana svg{display:block;width:100%;height:auto}
+.semana .tot{display:flex;justify-content:space-between;margin-top:10px;font-size:14px;color:var(--muted)}
+.semana .tot b{color:var(--ink);font:700 20px/1 "Barlow Condensed",sans-serif;display:block}
+
+.acciones{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--bg) 70%,transparent);display:flex;gap:10px;justify-content:center;z-index:5}
+.acciones .btn{flex:1;max-width:244px;padding:15px 10px;font-size:17px}
+.acciones .gasto{background:var(--surface);color:var(--gasto);border:2px solid var(--gasto)}
+
+/* Hoja inferior */
+.velo{position:fixed;inset:0;background:rgba(10,15,30,.5);display:none;z-index:20}
+.hoja{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--surface);border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .22s ease-out;z-index:21;max-height:92vh;overflow:auto}
+.abierta .velo{display:block}
+.abierta .hoja{transform:none}
+@media (prefers-reduced-motion:reduce){.hoja{transition:none}}
+.hoja h3{font:700 26px/1.1 "Barlow Condensed",sans-serif;margin:0 0 14px}
+.campo{margin-bottom:14px}
+.campo label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.campo .ayuda{font-size:12.5px;color:var(--muted);margin-top:4px}
+.monto{display:flex;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.monto span{font:700 22px "Barlow Condensed",sans-serif;color:var(--muted);margin-right:6px}
+.monto input{flex:1;border:0;background:transparent;color:var(--ink);font:700 30px/1 "Barlow Condensed",sans-serif;padding:10px 0;min-width:0}
+.monto input:focus{outline:none}
+.monto:focus-within{outline:3px solid var(--road);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1px solid var(--line);background:var(--field);border-radius:999px;padding:9px 14px;font-weight:500}
+.chips button[aria-pressed="true"]{background:var(--road);border-color:var(--road);color:#fff}
+.texto{width:100%;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px;padding:11px 12px;font:inherit}
+.fila{display:flex;gap:10px;margin-top:6px}
+.fila .btn{flex:1;padding:14px}
+.aviso{font-size:13px;color:var(--muted);margin-top:18px;text-align:center}
+.oculto{display:none!important}
+.respaldo{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.respaldo p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.respaldo .fila{margin-top:0}
+.caja{width:100%;min-height:150px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px;padding:10px;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+#instalar{display:block;margin:14px auto 0}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
+.toast.ver{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Jornal</div>
+    <div class="daynav">
+      <button id="prev" aria-label="Día anterior">‹</button>
+      <div class="daylabel" id="daylabel">Hoy</div>
+      <button id="next" aria-label="Día siguiente">›</button>
+    </div>
+  </header>
+
+  <section class="placa" aria-live="polite">
+    <div class="lbl">Te quedan limpios</div>
+    <div class="neto num" id="neto"><small>S/</small>0.00</div>
+    <div class="stats">
+      <div><b id="sPed">0</b><span>pedidos</span></div>
+      <div><b id="sProp">0.00</b><span>propinas</span></div>
+      <div><b id="sEfe">0.00</b><span>efectivo</span></div>
+      <div><b id="sHora">–</b><span>S/ por hora</span></div>
+    </div>
+  </section>
+
+  <div class="turno">
+    <div class="t" id="turnoTxt">Sin turno registrado<strong id="turnoTiempo">0 h 00 min</strong></div>
+    <button class="btn road" id="turnoBtn">Iniciar turno</button>
+  </div>
+
+  <h2>Movimientos del día</h2>
+  <div id="listaWrap"></div>
+
+  <h2>Últimos 7 días</h2>
+  <div class="semana">
+    <svg id="grafico" viewBox="0 0 320 130" role="img" aria-label="Ganancia neta de los últimos 7 días"></svg>
+    <div class="tot">
+      <div>Ganado<b id="wGan">S/ 0</b></div>
+      <div>Gastado<b id="wGas">S/ 0</b></div>
+      <div>Neto<b id="wNet">S/ 0</b></div>
+      <div>Pedidos<b id="wPed">0</b></div>
+    </div>
+  </div>
+  <h2>Respaldo</h2>
+  <div class="respaldo">
+    <p>Tus datos viven solo en este celular. Copia un respaldo de vez en cuando y guárdalo en tus notas o en WhatsApp, por si borras los datos de Chrome o cambias de teléfono.</p>
+    <div class="fila">
+      <button type="button" class="btn ghost" id="expBtn">Copiar respaldo</button>
+      <button type="button" class="btn ghost" id="impBtn">Pegar respaldo</button>
+    </div>
+  </div>
+  <p class="aviso" id="estado">Guardado en este celular. Funciona sin internet.</p>
+  <button type="button" class="btn road oculto" id="instalar">Instalar en el celular</button>
+</div>
+
+<div class="acciones">
+  <button class="btn road" id="addPedido">+ Pedido</button>
+  <button class="btn gasto" id="addGasto">+ Gasto</button>
+</div>
+
+<div id="capa">
+  <div class="velo" id="velo"></div>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="hojaTit">
+    <form id="fPedido" autocomplete="off">
+      <h3 id="hojaTit">Nuevo pedido</h3>
+      <div class="campo">
+        <label for="pTarifa">Lo que te pagan por el pedido</label>
+        <div class="monto"><span>S/</span><input id="pTarifa" inputmode="decimal" placeholder="0.00" required></div>
+      </div>
+      <div class="campo">
+        <label for="pProp">Propina</label>
+        <div class="monto"><span>S/</span><input id="pProp" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="campo">
+        <label>App</label>
+        <div class="chips" id="pApp">
+          <button type="button" data-v="PedidosYa">PedidosYa</button>
+          <button type="button" data-v="Rappi">Rappi</button>
+          <button type="button" data-v="Otra">Otra</button>
+        </div>
+      </div>
+      <div class="campo">
+        <label>¿Cómo pagó el cliente?</label>
+        <div class="chips" id="pPago">
+          <button type="button" data-v="app" aria-pressed="true">Por la app</button>
+          <button type="button" data-v="efectivo">En efectivo</button>
+        </div>
+      </div>
+      <div class="campo oculto" id="cobroWrap">
+        <label for="pCobro">Efectivo que cobraste al cliente</label>
+        <div class="monto"><span>S/</span><input id="pCobro" inputmode="decimal" placeholder="0.00"></div>
+        <div class="ayuda">Así sabes cuánta plata de la app llevas encima.</div>
+      </div>
+      <div class="fila">
+        <button type="button" class="btn ghost" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn road">Guardar pedido</button>
+      </div>
+    </form>
+
+    <form id="fGasto" class="oculto" autocomplete="off">
+      <h3>Nuevo gasto</h3>
+      <div class="campo">
+        <label for="gMonto">Monto</label>
+        <div class="monto"><span>S/</span><input id="gMonto" inputmode="decimal" placeholder="0.00" required></div>
+      </div>
+      <div class="campo">
+        <label>Tipo</label>
+        <div class="chips" id="gTipo">
+          <button type="button" data-v="Gasolina" aria-pressed="true">Gasolina</button>
+          <button type="button" data-v="Comida">Comida</button>
+          <button type="button" data-v="Mantenimiento">Mantenimiento</button>
+          <button type="button" data-v="Saldo y datos">Saldo y datos</button>
+          <button type="button" data-v="Otro">Otro</button>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="gNota">Nota (opcional)</label>
+        <input id="gNota" class="texto" maxlength="60" placeholder="Ej.: cámara nueva">
+      </div>
+      <div class="fila">
+        <button type="button" class="btn ghost" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn stop">Guardar gasto</button>
+      </div>
+    </form>
+
+    <form id="fRespaldo" class="oculto" autocomplete="off">
+      <h3 id="rTit">Respaldo</h3>
+      <div class="campo">
+        <label for="rCaja" id="rLbl">Texto del respaldo</label>
+        <textarea id="rCaja" class="caja" spellcheck="false"></textarea>
+        <div class="ayuda" id="rAyuda"></div>
+      </div>
+      <div class="fila">
+        <button type="button" class="btn ghost" data-cerrar>Cerrar</button>
+        <button type="submit" class="btn road" id="rOk">Copiar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  // La jornada empieza a las 5 a. m.: un pedido a la 1 a. m. cuenta para la noche anterior.
+  var CORTE = 5;
+  var dias = {};           // { "2026-10-28": {pedidos:[], gastos:[], turnos:[]} }
+  var vista = claveJornada(new Date());
+  var appElegida = leerLocal("jornal:app") || "PedidosYa";
+
+  function pad(n){return String(n).padStart(2,"0")}
+  function claveJornada(d){
+    var x = new Date(d.getTime());
+    if (x.getHours() < CORTE) x.setDate(x.getDate()-1);
+    return x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate());
+  }
+  function fechaDe(clave){var p=clave.split("-");return new Date(+p[0],+p[1]-1,+p[2],12)}
+  function moverDia(clave,n){var d=fechaDe(clave);d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+  function soles(n){return (Math.round(n*100)/100).toFixed(2)}
+  function num(v){var n=parseFloat(String(v||"").replace(",","."));return isFinite(n)&&n>=0?n:0}
+  function hora(ts){var d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes())}
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+  function vacioDia(){return {pedidos:[],gastos:[],turnos:[]}}
+  function dia(k){return dias[k]||vacioDia()}
+  function leerLocal(k){try{return localStorage.getItem(k)}catch(e){return null}}
+  function escribirLocal(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+  function toast(t){var el=document.getElementById("toast");el.textContent=t;el.classList.add("ver");clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove("ver")},1600)}
+
+  // ---------- Guardado ----------
+  function guardar(k){
+    var d = dia(k);
+    escribirLocal("jornal:dia:"+k, JSON.stringify(d));
+    var idx = JSON.parse(leerLocal("jornal:indice")||"[]");
+    if (idx.indexOf(k)<0){idx.push(k);escribirLocal("jornal:indice",JSON.stringify(idx))}
+  }
+  function cargarLocal(){
+    var idx = JSON.parse(leerLocal("jornal:indice")||"[]");
+    idx.forEach(function(k){try{dias[k]=JSON.parse(leerLocal("jornal:dia:"+k))||vacioDia()}catch(e){}});
+  }
+
+  // ---------- Cálculos ----------
+  function resumen(k){
+    var d = dia(k), r = {ped:d.pedidos.length,gan:0,prop:0,efe:0,gas:0,min:0};
+    d.pedidos.forEach(function(p){r.gan+=p.tarifa+p.propina;r.prop+=p.propina;if(p.pago==="efectivo")r.efe+=p.cobro});
+    d.gastos.forEach(function(g){r.gas+=g.monto});
+    d.turnos.forEach(function(t){var fin=t.fin||Date.now();r.min+=Math.max(0,(fin-t.ini)/60000)});
+    r.neto = r.gan - r.gas;
+    return r;
+  }
+  function turnoAbierto(){var t=dia(vista).turnos;return t.length&&!t[t.length-1].fin?t[t.length-1]:null}
+
+  // ---------- Pintar ----------
+  function pintar(){
+    var hoy = claveJornada(new Date());
+    var lbl = vista===hoy ? "Hoy" : vista===moverDia(hoy,-1) ? "Ayer" :
+      fechaDe(vista).toLocaleDateString("es-PE",{weekday:"short",day:"numeric",month:"short"});
+    document.getElementById("daylabel").textContent = lbl;
+    document.getElementById("next").disabled = vista>=hoy;
+
+    var r = resumen(vista);
+    var neto = document.getElementById("neto");
+    neto.innerHTML = "<small>S/</small>"+(r.neto<0?"−":"")+soles(Math.abs(r.neto));
+    neto.classList.toggle("neg", r.neto<0);
+    document.getElementById("sPed").textContent = r.ped;
+    document.getElementById("sProp").textContent = soles(r.prop);
+    document.getElementById("sEfe").textContent = soles(r.efe);
+    document.getElementById("sHora").textContent = r.min>=10 ? soles(r.gan/(r.min/60)) : "–";
+
+    // Turno
+    var abierto = turnoAbierto();
+    var h = Math.floor(r.min/60), m = Math.floor(r.min%60);
+    document.getElementById("turnoTiempo").textContent = h+" h "+pad(m)+" min";
+    var txt = document.getElementById("turnoTxt").firstChild;
+    var btn = document.getElementById("turnoBtn");
+    if (vista!==hoy){ btn.classList.add("oculto"); txt.nodeValue = r.min ? "Tiempo en la calle" : "Sin turno registrado"; }
+    else {
+      btn.classList.remove("oculto");
+      if (abierto){ txt.nodeValue="En turno desde las "+hora(abierto.ini); btn.textContent="Terminar turno"; btn.className="btn stop"; }
+      else { txt.nodeValue = r.min ? "Tiempo en la calle" : "Sin turno registrado"; btn.textContent = r.min ? "Seguir turno" : "Iniciar turno"; btn.className="btn road"; }
+    }
+
+    // Lista
+    var d = dia(vista), items = [];
+    d.pedidos.forEach(function(p){items.push({t:p.t,tipo:"p",o:p})});
+    d.gastos.forEach(function(g){items.push({t:g.t,tipo:"g",o:g})});
+    items.sort(function(a,b){return b.t-a.t});
+    var wrap = document.getElementById("listaWrap");
+    wrap.textContent = "";
+    if (!items.length){
+      var v=document.createElement("div");v.className="vacio";
+      v.textContent = vista===hoy ? "Aún no hay nada. Toca + Pedido cuando entregues el primero." : "Ese día no registraste nada.";
+      wrap.appendChild(v);
+    } else {
+      var ul=document.createElement("ul");ul.className="lista";
+      items.forEach(function(it){
+        var li=document.createElement("li"), o=it.o;
+        var hs=document.createElement("div");hs.className="hora";hs.textContent=hora(it.t);
+        var det=document.createElement("div");det.className="det";
+        var q=document.createElement("div");q.className="q";
+        var s=document.createElement("div");s.className="s";
+        var mm=document.createElement("div");
+        if (it.tipo==="p"){
+          q.textContent="Pedido · "+o.app;
+          var partes=[];
+          if (o.propina) partes.push("propina S/ "+soles(o.propina));
+          partes.push(o.pago==="efectivo" ? "efectivo"+(o.cobro?" (cobraste S/ "+soles(o.cobro)+")":"") : "pagado por app");
+          s.textContent=partes.join(", ");
+          mm.className="m in";mm.textContent="+"+soles(o.tarifa+o.propina);
+        } else {
+          q.textContent=o.tipo;
+          s.textContent=o.nota||"Gasto";
+          mm.className="m out";mm.textContent="−"+soles(o.monto);
+        }
+        det.appendChild(q);det.appendChild(s);
+        var del=document.createElement("button");del.className="del";del.textContent="Borrar";
+        del.setAttribute("aria-label","Borrar este movimiento");
+        del.onclick=function(){
+          if(!confirm("¿Borrar este movimiento?"))return;
+          var dd=dias[vista]; if(!dd)return;
+          if(it.tipo==="p") dd.pedidos=dd.pedidos.filter(function(x){return x.id!==o.id});
+          else dd.gastos=dd.gastos.filter(function(x){return x.id!==o.id});
+          guardar(vista);pintar();toast("Borrado");
+        };
+        li.appendChild(hs);li.appendChild(det);li.appendChild(mm);li.appendChild(del);
+        ul.appendChild(li);
+      });
+      wrap.appendChild(ul);
+    }
+    pintarSemana(hoy);
+  }
+
+  function pintarSemana(hoy){
+    var svg=document.getElementById("grafico"), ks=[], tot={gan:0,gas:0,ped:0};
+    for (var i=6;i>=0;i--) ks.push(moverDia(hoy,-i));
+    var rs=ks.map(function(k){var r=resumen(k);tot.gan+=r.gan;tot.gas+=r.gas;tot.ped+=r.ped;return r});
+    var max=Math.max(1,Math.max.apply(null,rs.map(function(r){return Math.abs(r.neto)})));
+    var css=getComputedStyle(document.documentElement);
+    var road=css.getPropertyValue("--road").trim(), gasto=css.getPropertyValue("--gasto").trim(),
+        muted=css.getPropertyValue("--muted").trim(), line=css.getPropertyValue("--line").trim(),
+        sign=css.getPropertyValue("--sign").trim(), ink=css.getPropertyValue("--ink").trim();
+    var W=320, base=96, alto=72, ancho=30, paso=W/7, out="";
+    out+='<line x1="0" y1="'+base+'" x2="'+W+'" y2="'+base+'" stroke="'+line+'" stroke-width="1"/>';
+    rs.forEach(function(r,i){
+      var hgt=Math.max(r.neto?3:0, Math.abs(r.neto)/max*alto), x=i*paso+(paso-ancho)/2;
+      var y=r.neto>=0?base-hgt:base, sel=ks[i]===vista;
+      var col=r.neto<0?gasto:(sel?sign:road);
+      out+='<rect x="'+x+'" y="'+y+'" width="'+ancho+'" height="'+hgt+'" rx="3" fill="'+col+'"'+(sel&&r.neto>=0?' stroke="'+ink+'" stroke-width="1.5"':'')+'/>';
+      if (r.neto) out+='<text x="'+(x+ancho/2)+'" y="'+(r.neto>=0?y-5:y+hgt+13)+'" text-anchor="middle" font-size="11" font-family="Barlow Condensed,sans-serif" font-weight="700" fill="'+ink+'">'+Math.round(r.neto)+'</text>';
+      var dl=fechaDe(ks[i]).toLocaleDateString("es-PE",{weekday:"narrow"});
+      out+='<text x="'+(x+ancho/2)+'" y="'+(base+28)+'" text-anchor="middle" font-size="12" font-family="Barlow,sans-serif" fill="'+(sel?ink:muted)+'" font-weight="'+(sel?600:400)+'">'+dl.toUpperCase()+'</text>';
+    });
+    svg.innerHTML=out;
+    document.getElementById("wGan").textContent="S/ "+Math.round(tot.gan);
+    document.getElementById("wGas").textContent="S/ "+Math.round(tot.gas);
+    document.getElementById("wNet").textContent="S/ "+Math.round(tot.gan-tot.gas);
+    document.getElementById("wPed").textContent=tot.ped;
+  }
+
+  // ---------- Hojas ----------
+  var capa=document.getElementById("capa"), fP=document.getElementById("fPedido"), fG=document.getElementById("fGasto"), fR=document.getElementById("fRespaldo");
+  function abrir(cual){
+    capa.classList.add("abierta");
+    fP.classList.toggle("oculto",cual!=="p"); fG.classList.toggle("oculto",cual!=="g"); fR.classList.toggle("oculto",cual!=="r");
+    if(cual==="r")return;
+    if(cual==="p"){fP.reset();marcar("pApp",appElegida);marcar("pPago","app");document.getElementById("cobroWrap").classList.add("oculto");setTimeout(function(){document.getElementById("pTarifa").focus()},60)}
+    else{fG.reset();marcar("gTipo","Gasolina");setTimeout(function(){document.getElementById("gMonto").focus()},60)}
+  }
+  function cerrar(){capa.classList.remove("abierta")}
+  function marcar(grupo,v){Array.prototype.forEach.call(document.getElementById(grupo).children,function(b){b.setAttribute("aria-pressed",String(b.dataset.v===v))})}
+  function elegido(grupo){var b=document.querySelector("#"+grupo+' [aria-pressed="true"]');return b?b.dataset.v:null}
+  ["pApp","pPago","gTipo"].forEach(function(g){
+    document.getElementById(g).addEventListener("click",function(e){
+      var b=e.target.closest("button");if(!b)return;marcar(g,b.dataset.v);
+      if(g==="pPago")document.getElementById("cobroWrap").classList.toggle("oculto",b.dataset.v!=="efectivo");
+    });
+  });
+  document.getElementById("velo").onclick=cerrar;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-cerrar]"),function(b){b.onclick=cerrar});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")cerrar()});
+
+  function hoyParaEscribir(){
+    var hoy=claveJornada(new Date());
+    if(vista!==hoy){vista=hoy}
+    if(!dias[hoy])dias[hoy]=vacioDia();
+    return hoy;
+  }
+  fP.addEventListener("submit",function(e){
+    e.preventDefault();
+    var tarifa=num(document.getElementById("pTarifa").value);
+    if(!tarifa){toast("Escribe cuánto te pagan por el pedido");return}
+    var k=hoyParaEscribir(), pago=elegido("pPago");
+    appElegida=elegido("pApp")||"Otra"; escribirLocal("jornal:app",appElegida);
+    dias[k].pedidos.push({id:uid(),t:Date.now(),tarifa:tarifa,propina:num(document.getElementById("pProp").value),
+      app:appElegida,pago:pago,cobro:pago==="efectivo"?num(document.getElementById("pCobro").value):0});
+    guardar(k);cerrar();pintar();toast("Pedido guardado");
+  });
+  fG.addEventListener("submit",function(e){
+    e.preventDefault();
+    var monto=num(document.getElementById("gMonto").value);
+    if(!monto){toast("Escribe el monto del gasto");return}
+    var k=hoyParaEscribir();
+    dias[k].gastos.push({id:uid(),t:Date.now(),monto:monto,tipo:elegido("gTipo")||"Otro",nota:document.getElementById("gNota").value.trim()});
+    guardar(k);cerrar();pintar();toast("Gasto guardado");
+  });
+  document.getElementById("addPedido").onclick=function(){abrir("p")};
+  document.getElementById("addGasto").onclick=function(){abrir("g")};
+
+  document.getElementById("turnoBtn").onclick=function(){
+    var k=hoyParaEscribir(), t=dias[k].turnos, ab=turnoAbierto();
+    if(ab){ab.fin=Date.now();toast("Turno terminado")} else {t.push({ini:Date.now(),fin:null});toast("Turno iniciado")}
+    guardar(k);pintar();
+  };
+  document.getElementById("prev").onclick=function(){vista=moverDia(vista,-1);pintar()};
+  document.getElementById("next").onclick=function(){var hoy=claveJornada(new Date());if(vista<hoy){vista=moverDia(vista,1);pintar()}};
+
+  setInterval(function(){if(turnoAbierto())pintar()},30000);
+
+  // ---------- Respaldo ----------
+  var modoR="exp", caja=document.getElementById("rCaja");
+  function abrirRespaldo(modo){
+    modoR=modo; abrir("r");
+    document.getElementById("rTit").textContent = modo==="exp" ? "Copiar respaldo" : "Pegar respaldo";
+    document.getElementById("rLbl").textContent = modo==="exp" ? "Este texto contiene todos tus registros" : "Pega aquí el texto de tu respaldo";
+    document.getElementById("rAyuda").textContent = modo==="exp" ? "Guárdalo en tus notas o mándatelo por WhatsApp." : "Lo que ya tienes en este celular se conserva; solo se suma lo que falte.";
+    document.getElementById("rOk").textContent = modo==="exp" ? "Copiar" : "Importar";
+    caja.readOnly = modo==="exp";
+    caja.value = modo==="exp" ? JSON.stringify({app:"jornal",v:1,dias:dias}) : "";
+    setTimeout(function(){caja.focus(); if(modo==="exp")caja.select()},60);
+  }
+  function importar(txt){
+    var datos=JSON.parse(txt), entrantes=(datos&&datos.dias)||datos, n=0;
+    if(!entrantes||typeof entrantes!=="object")throw new Error("formato");
+    Object.keys(entrantes).forEach(function(k){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return;
+      var e=entrantes[k]||{}, d=dias[k]||(dias[k]=vacioDia());
+      var ids={}; d.pedidos.concat(d.gastos).forEach(function(x){ids[x.id]=1});
+      (e.pedidos||[]).forEach(function(x){if(x&&x.id&&!ids[x.id]){d.pedidos.push(x);n++}});
+      (e.gastos||[]).forEach(function(x){if(x&&x.id&&!ids[x.id]){d.gastos.push(x);n++}});
+      var inis={}; d.turnos.forEach(function(t){inis[t.ini]=1});
+      (e.turnos||[]).forEach(function(t){if(t&&t.ini&&!inis[t.ini]){d.turnos.push({ini:t.ini,fin:t.fin||null});n++}});
+      guardar(k);
+    });
+    return n;
+  }
+  document.getElementById("expBtn").onclick=function(){abrirRespaldo("exp")};
+  document.getElementById("impBtn").onclick=function(){abrirRespaldo("imp")};
+  fR.addEventListener("submit",function(e){
+    e.preventDefault();
+    if(modoR==="exp"){
+      var ok=function(){toast("Respaldo copiado")};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(caja.value).then(ok,function(){caja.select();document.execCommand("copy");ok()})}
+      else{caja.select();document.execCommand("copy");ok()}
+      return;
+    }
+    try{var n=importar(caja.value.trim());cerrar();pintar();toast(n?"Se agregaron "+n+" registros":"No había nada nuevo")}
+    catch(err){toast("Ese texto no es un respaldo de Jornal")}
+  });
+
+  // ---------- Arranque ----------
+  cargarLocal(); pintar();
+
+  // Pide al navegador que no borre los datos por falta de espacio.
+  if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(function(){})}
+
+  // Modo sin conexión
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+  }
+
+  // Botón de instalar (Chrome en Android)
+  var avisoInstalar=null, bInst=document.getElementById("instalar");
+  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();avisoInstalar=e;bInst.classList.remove("oculto")});
+  bInst.onclick=function(){if(!avisoInstalar)return;avisoInstalar.prompt();avisoInstalar.userChoice.finally(function(){avisoInstalar=null;bInst.classList.add("oculto")})};
+  window.addEventListener("appinstalled",function(){bInst.classList.add("oculto");toast("Jornal instalada")});
+})();
+</script>
+</body>
+</html>
